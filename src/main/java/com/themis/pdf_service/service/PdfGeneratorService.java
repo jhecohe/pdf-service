@@ -1,71 +1,55 @@
-package com.jhecohe.pdf_service.service;
+package com.themis.pdf_service.service;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.LinkedList;
 
-
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.springframework.stereotype.Service;
+import com.themis.pdf_service.dto.ComponentDTO;
+import com.themis.pdf_service.dto.FormularioDto;
+import com.themis.pdf_service.enums.ComponentsPDFEnum;
+import com.themis.pdf_service.tools.constants.*;
 
-import com.jhecohe.pdf_service.dto.FormularioDto;
-import com.jhecohe.pdf_service.tools.PdfboxFunctions;
-import com.jhecohe.pdf_service.tools.constants.*;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class PdfGeneratorService {
 
-    
+    private final IPdfGeneratorService pdfGeneratorService;
 
     public byte[] generatePdf(FormularioDto dto) throws IOException {
-        try {
 
-            // Creating PDF document object
-            PDDocument document = new PDDocument();
+        String texto = Formulario.PRIMER_PARRAFO
+                .replaceAll("\\[NOMBRE COMPLETO\\]", dto.getNombre())
+                .replaceAll("\\[CÉDULA\\]", dto.getCedula().toString())
+                .replaceAll("\\[CIUDAD\\]", dto.getCiudad())
+                .replaceAll("\\[NOMBRE DE LA ENTIDAD DEMANDADA\\]", dto.getEntidadDemandada());
 
-            // Set document properties
-            PdfboxFunctions.setDocumentProperties(document);
+        String data = texto;
 
-            // Add a page to the document with proper size
-            PDPage page = new PDPage(PDRectangle.LETTER);
-            document.addPage(page);
+        String hl = "Señor(a) Juez de la República";
 
-            // Add some Text
-            PdfboxFunctions.addText(document, page, Formulario.TITULO, 0, 750);
+        LinkedList<ComponentDTO> components = new LinkedList<>();
 
-            // Add paragraph
-            String ej = "Ejemplo";
-            StringBuilder sb = new StringBuilder();
-            String texto = Formulario.PRIMER_PARRAFO.replaceAll("\\[NOMBRE COMPLETO\\]", dto.getNombre());
-            texto = texto.replaceAll("\\[CÉDULA\\]", dto.getCedula().toString());
-            texto = texto.replaceAll("\\[CIUDAD\\]", dto.getCiudad());
-            texto = texto.replaceAll("\\[NOMBRE DE LA ENTIDAD DEMANDADA\\]", dto.getEntidadDemandada());
+        // The components must be added in the order you want them to print.
+        components.add(ComponentDTO.builder()
+                .text(Formulario.TITULO)
+                .bold(true)
+                .componentEnum(ComponentsPDFEnum.TITLE)
+                .build());
 
-            String data = texto;
-            
-            for (int i = 0; i < 2; i++) {
-                PdfboxFunctions.addParagraph(document, page, data, 0, 700);
-            }
+        components.add(ComponentDTO.builder()
+                .text(hl)
+                .bold(true)
+                .componentEnum(ComponentsPDFEnum.HEADLINE)
+                .build());
 
-            // Draw Line
-            // drawLines(document, page, 25, 500);
+        components.add(ComponentDTO.builder()
+                .text(texto)
+                .bold(null)
+                .componentEnum(ComponentsPDFEnum.PARAGRAPH)
+                .build());
 
-            // Draw Rectangle
-            // drawRectangle(document, page, 25, 450);
-
-            // Write the document to a byte array
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            document.save(outputStream);
-
-            // Closing the document
-            document.close();
-
-            return outputStream.toByteArray();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
+        return pdfGeneratorService.print(components);
     }
 }

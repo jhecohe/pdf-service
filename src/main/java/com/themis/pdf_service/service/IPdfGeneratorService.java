@@ -1,9 +1,10 @@
-package com.jhecohe.pdf_service.service;
+package com.themis.pdf_service.service;
+
+import java.util.LinkedList;
+
+import com.themis.pdf_service.dto.ComponentDTO;
 
 public interface IPdfGeneratorService {
-    byte[] generatePdf() throws Exception;
 
-    byte[] addText() throws Exception;
-
-    byte[] addParagraph() throws Exception;
+    byte[] print(LinkedList<ComponentDTO> data);
 }

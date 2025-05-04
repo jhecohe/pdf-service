@@ -1,4 +1,4 @@
-package com.jhecohe.pdf_service;
+package com.themis.pdf_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
