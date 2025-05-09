@@ -73,26 +73,40 @@ public class PdfboxLayout implements IPdfGeneratorService {
 
     }
 
+    private void addSign(Document document, String text) {
+        Paragraph paragraph = new Paragraph();
+        try {            
+            paragraph.addMarkup(text, 11, BaseFont.Helvetica);
+        } catch (IOException e) {
+            log.error("Error adding sign to document: " + e.getMessage());
+            e.printStackTrace();
+        }
+        document.add(paragraph, new VerticalLayoutHint(Alignment.Justify, 0, 0,
+                PARAGRAPH_FONT, 0));
+    }
+
     @Override
     public byte[] print(LinkedList<ComponentDTO> data) {
 
-        // Creating PDF document object
-        float hMargin = 70;
-        float vMargin = 70;
+        Document document = createDocument();
 
-        Document document = new Document(hMargin, hMargin, vMargin, vMargin);
+        LinkedList<ComponentDTO> componentes = data;
 
-        while (!data.isEmpty()) {
-            ComponentDTO component = data.pop();
+        while (!componentes.isEmpty()) {
+            ComponentDTO component = componentes.pop();
             switch (component.getComponentEnum()) {
                 case TITLE:
-                    addTitle(document, component.getText(), true);
+                    addTitle(document, component.getText(), component.getBold());
                     break;
                 case HEADLINE:
-                    addHeadLine(document, component.getText(), true);
+                    addHeadLine(document, component.getText(), component.getBold());
                     break;
                 case PARAGRAPH:
                     addParagraph(document, component.getText());
+                    break;
+                case SIGN:
+                    addSign(document, component.getText());
+                    break;
                 default:
                     break;
             }
@@ -107,7 +121,13 @@ public class PdfboxLayout implements IPdfGeneratorService {
         }
 
         return outputStream.toByteArray();
-
     }
 
+    private Document createDocument() {
+        float hMargin = 70;
+        float vMargin = 70;
+
+        Document document = new Document(hMargin, hMargin, vMargin, vMargin);
+        return document;
+    }
 }

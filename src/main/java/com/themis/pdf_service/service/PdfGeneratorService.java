@@ -1,34 +1,48 @@
 package com.themis.pdf_service.service;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedList;
 
 import org.springframework.stereotype.Service;
 import com.themis.pdf_service.dto.ComponentDTO;
 import com.themis.pdf_service.dto.FormularioDto;
 import com.themis.pdf_service.enums.ComponentsPDFEnum;
-import com.themis.pdf_service.tools.constants.*;
+import com.themis.pdf_service.tools.constants.Formulario;
 
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
 public class PdfGeneratorService {
 
     private final IPdfGeneratorService pdfGeneratorService;
+    private final PromptService promptService;
 
-    public byte[] generatePdf(FormularioDto dto) throws IOException {
+    public Mono<byte[]> generatePdf(FormularioDto dto) throws IOException {
 
-        String texto = Formulario.PRIMER_PARRAFO
-                .replaceAll("\\[NOMBRE COMPLETO\\]", dto.getNombre())
-                .replaceAll("\\[CÉDULA\\]", dto.getCedula().toString())
-                .replaceAll("\\[CIUDAD\\]", dto.getCiudad())
-                .replaceAll("\\[NOMBRE DE LA ENTIDAD DEMANDADA\\]", dto.getEntidadDemandada());
+        Mono<String> prompt = promptService.getPrompt();
 
-        String data = texto;
+        prompt.switchIfEmpty(Mono.error(new RuntimeException("Prompt is empty")))
+                .doOnError(e -> {
+                    throw new RuntimeException("Error fetching prompt: " + e.getMessage());
+                });
 
-        String hl = "Señor(a) Juez de la República";
+        return prompt.map(data -> {
 
+            byte[] pdf = pdfGeneratorService.print(createComponents(data, dto));
+
+            return pdf;
+        });
+    }
+
+    private LinkedList<ComponentDTO> createComponents(String data, FormularioDto dto) {
+
+        // Create a list of components to be added to the PDF
+        // The order of the components is important for the layout
+        // The first component will be printed first, and so on.
         LinkedList<ComponentDTO> components = new LinkedList<>();
 
         // The components must be added in the order you want them to print.
@@ -39,10 +53,19 @@ public class PdfGeneratorService {
                 .build());
 
         components.add(ComponentDTO.builder()
-                .text(hl)
+                .text(Formulario.SALUDO)
                 .bold(true)
                 .componentEnum(ComponentsPDFEnum.HEADLINE)
                 .build());
+
+        String texto = data
+                .replaceAll("\\[NOMBRE COMPLETO\\]", dto.getBoldNombre())
+                .replaceAll("\\[CÉDULA\\]", dto.getBoldCedula())
+                .replaceAll("\\[CIUDAD\\]", dto.getBoldCiudad())
+                .replaceAll("\\[DIAGNOSTICO\\]", dto.getBoldDiagnostico())
+                .replaceAll("\\[CONDICION\\]", dto.getBoldCondicion())
+                .replaceAll("\\[FECHA\\]", LocalDate.now().toString())
+                .replaceAll("\\[ENTIDAD DEMANDADA\\]", dto.getBoldEntidadDemandada());
 
         components.add(ComponentDTO.builder()
                 .text(texto)
@@ -50,6 +73,20 @@ public class PdfGeneratorService {
                 .componentEnum(ComponentsPDFEnum.PARAGRAPH)
                 .build());
 
-        return pdfGeneratorService.print(components);
+        String firma = Formulario.FIRMA
+                .replaceAll("\\[NOMBRE COMPLETO\\]", dto.getBoldNombre())
+                .replaceAll("\\[CÉDULA\\]", dto.getCedula())
+                .replaceAll("\\[CIUDAD\\]", dto.getCiudad())
+                .replaceAll("\\[FECHA\\]", LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
+                .toString();
+
+
+        components.add(ComponentDTO.builder()
+                .text(firma)
+                .bold(null)
+                .componentEnum(ComponentsPDFEnum.SIGN)
+                .build());
+
+        return components;
     }
 }
